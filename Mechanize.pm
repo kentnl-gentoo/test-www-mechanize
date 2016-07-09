@@ -9,11 +9,11 @@ Test::WWW::Mechanize - Testing-specific WWW::Mechanize subclass
 
 =head1 VERSION
 
-Version 1.44
+Version 1.45_01
 
 =cut
 
-our $VERSION = '1.44';
+our $VERSION = '1.45_01';
 
 =head1 SYNOPSIS
 
@@ -266,6 +266,52 @@ sub put_ok {
     }
 
     return $ok;
+}
+
+=head2 $mech->delete_ok( $url, [ \%LWP_options ,] $desc )
+
+A wrapper around WWW::Mechanize's delete(), with similar options, except
+the second argument needs to be a hash reference, not a hash. Like
+well-behaved C<*_ok()> functions, it returns true if the test passed,
+or false if not.
+
+A default description of "DELETE to $url" is used if none if provided.
+
+=cut
+
+sub delete_ok {
+    my $self = shift;
+
+    my ($url,$desc,%opts) = $self->_unpack_args( 'DELETE', @_ );
+
+    if ($self->can('delete')) {
+        $self->delete( $url, %opts );
+    }
+    else {
+        # When version of LWP::UserAgent is older than 6.04.
+        $self->_delete( $url, %opts );
+    }
+    my $ok = $self->success;
+
+    $ok = $self->_maybe_lint( $ok, $desc );
+
+    return $ok;
+}
+
+sub _delete {
+    require URI;
+    require HTTP::Request::Common;
+    my $self = shift;
+    my $uri  = shift;
+
+    $uri = $uri->url if ref($uri) eq 'WWW::Mechanize::Link';
+    $uri = $self->base
+      ? URI->new_abs( $uri, $self->base )
+      : URI->new($uri);
+
+    my @parameters = ( $uri->as_string, @_ );
+    my @suff = $self->_process_colonic_headers( \@parameters, 1 );
+    return $self->request( HTTP::Request::Common::DELETE(@parameters), @suff );
 }
 
 =head2 $mech->submit_form_ok( \%parms [, $desc] )
@@ -1109,7 +1155,7 @@ sub _default_links_desc {
     return sprintf( '%d link%s %s', $url_count, $url_count == 1 ? '' : 's', $desc_suffix );
 }
 
-# This actually performs the status check of each url.
+# This actually performs the status check of each URL.
 sub _check_links_status {
     my $self = shift;
     my $urls = shift;
@@ -1140,7 +1186,7 @@ sub _check_links_status {
     return @failures;
 }
 
-# This actually performs the content check of each url. 
+# This actually performs the content check of each URL.
 sub _check_links_content {
     my $self = shift;
     my $urls = shift;
@@ -1199,7 +1245,7 @@ Finds all free-text input fields (text, textarea, and password) in the
 current form and fills them to their maximum length in hopes of finding
 application code that can't handle it.  Fields with no maximum length
 and all textarea fields are set to 66000 bytes, which will often be
-enough to overflow the data's eventual recepticle.
+enough to overflow the data's eventual receptacle.
 
 There is no return value.
 
@@ -1553,7 +1599,7 @@ sub scrape_text_by_attr {
 
 =head2 scrape_text_by_id( $id [, $html ] )
 
-Finds all elements with the given id attribute and pulls out the text that that element encloses.
+Finds all elements with the given ID attribute and pulls out the text that that element encloses.
 
 In list context, returns a list of all strings found. In scalar context, returns the first one found.
 
@@ -1640,6 +1686,52 @@ sub scraped_id_is {
 }
 
 
+=head2 $mech->header_exists( $field [, $desc ] )
+
+Assures that a given response header exists. The actual value of the response header is not checked, only that the header exists.
+
+=cut
+
+sub header_exists {
+    my $self = shift;
+    my $field = shift;
+    my $desc = shift || qq{Response has $field header};
+
+    my $ok = defined($self->response->header($field));
+
+    $TB->ok( $ok, $desc );
+    if ( !$ok ) {
+        $TB->diag( HTTP::Headers::as_string($self->response) ) if $self->response;
+    }
+
+    return $ok;
+}
+
+=head2 $mech->header_matches( $field, $value [, $desc ] )
+
+Assures that a given response header exists and has the given value.  Value may be a string or a regular expression.
+
+=cut
+
+sub header_matches {
+    my $self = shift;
+    my $field = shift;
+    my $value = shift;
+    my $desc = shift || qq{Response has $field header with value '$value'};
+
+    my $actual_value = scalar $self->response->header($field);
+    my $ok = (ref($value) eq 'Regexp')
+       ? defined($actual_value) && ($actual_value =~ $value)
+       : defined($actual_value) && ($actual_value eq $value);
+
+    $TB->ok( $ok, $desc );
+    if ( !$ok ) {
+        $TB->diag( $self->response->header($field) ) if $self->response;
+    }
+    return $ok;
+}
+
+
 =head1 TODO
 
 Add HTML::Tidy capabilities.
@@ -1686,6 +1778,10 @@ L<http://search.cpan.org/dist/Test-WWW-Mechanize>
 =head1 ACKNOWLEDGEMENTS
 
 Thanks to
+Eric A. Zarko,
+moznion,
+Robert Stone,
+tynovsky,
 Jerry Gay,
 Jonathan "Duke" Leto,
 Philip G. Potter,
@@ -1702,7 +1798,7 @@ and Pete Krawczyk for patches.
 
 =head1 COPYRIGHT & LICENSE
 
-Copyright 2004-2012 Andy Lester.
+Copyright 2004-2016 Andy Lester.
 
 This library is free software; you can redistribute it and/or modify it
 under the terms of the Artistic License version 2.0.
