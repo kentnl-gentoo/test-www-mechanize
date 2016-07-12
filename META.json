@@ -59,6 +59,6 @@
          "url" : "https://github.com/petdance/test-www-mechanize"
       }
    },
-   "version" : "1.45_02",
+   "version" : "1.45_03",
    "x_serialization_backend" : "JSON::PP version 2.27400"
 }

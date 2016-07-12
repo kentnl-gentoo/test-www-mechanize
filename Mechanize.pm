@@ -9,11 +9,11 @@ Test::WWW::Mechanize - Testing-specific WWW::Mechanize subclass
 
 =head1 VERSION
 
-Version 1.45_02
+Version 1.45_03
 
 =cut
 
-our $VERSION = '1.45_02';
+our $VERSION = '1.45_03';
 
 =head1 SYNOPSIS
 
@@ -1671,22 +1671,47 @@ sub scraped_id_is {
     my $expected = shift;
     my $msg      = shift;
 
-    if ( not defined $msg ) {
-        my $what = defined( $expected ) ? $expected : '(undef)';
-
-        $msg = qq{scraped id "$id" is "$what"};
+    my $ok;
+    my $got = $self->scrape_text_by_id( $id );
+    if ( defined( $got ) ) {
+        $ok = $TB->is_eq( $got, $expected, $msg );
+    }
+    else {
+        $ok = $TB->ok( 0, $msg );
+        $TB->diag( qq{Can't find ID "$id" to compare to "$expected"} );
     }
 
-    local $Test::Builder::Level = $Test::Builder::Level + 1;
-
-    my $got = $self->scrape_text_by_id($id);
-    is( $got, $expected, $msg );
-
-    return;
+    return $ok;
 }
 
 
-=head2 $mech->header_exists( $field [, $desc ] )
+=head2 $agent->scraped_id_like( $id, $expected_regex [, $msg] )
+
+Scrapes the current page for given id and tests that it matches the expected regex.
+
+=cut
+
+sub scraped_id_like {
+    my $self     = shift;
+    my $id       = shift;
+    my $expected = shift;
+    my $msg      = shift;
+
+    my $ok;
+    my $got = $self->scrape_text_by_id( $id );
+    if ( defined($got) ) {
+        $ok = $TB->like( $got, $expected, $msg );
+    }
+    else {
+        $ok = $TB->ok( 0, $msg );
+        $TB->diag( qq{Can't find ID "$id" to match against $expected} );
+    }
+
+    return $ok;
+}
+
+
+=head2 $mech->header_exists( $header [, $desc ] )
 
 Assures that a given response header exists. The actual value of the response header is not checked, only that the header exists.
 
@@ -1694,61 +1719,71 @@ Assures that a given response header exists. The actual value of the response he
 
 sub header_exists {
     my $self = shift;
-    my $field = shift;
-    my $desc = shift || qq{Response has $field header};
+    my $header = shift;
+    my $desc = shift || qq{Response has $header header};
 
-    my $ok = defined($self->response->header($field));
-
-    $TB->ok( $ok, $desc );
-    if ( !$ok ) {
-        $TB->diag( HTTP::Headers::as_string($self->response) ) if $self->response;
-    }
-
-    return $ok;
+    return $TB->ok( defined($self->response->header($header)), $desc );
 }
 
 
-=head2 $mech->lacks_header( $field [, $desc ] )
+=head2 $mech->lacks_header( $header [, $desc ] )
 
 Assures that a given response header does NOT exist.
 
 =cut
 
 sub lacks_header {
-    my $self  = shift;
-    my $field = shift;
-    my $desc  = shift || qq{Response lacks $field header};
+    my $self   = shift;
+    my $header = shift;
+    my $desc   = shift || qq{Response lacks $header header};
 
-    my $ok = !defined($self->response->header($field));
+    return $TB->ok( !defined($self->response->header($header)), $desc );
+}
 
-    $TB->ok( $ok, $desc );
+
+=head2 $mech->header_is( $header, $value [, $desc ] )
+
+Assures that a given response header exists and has the given value.
+
+=cut
+
+sub header_is {
+    my $self   = shift;
+    my $header = shift;
+    my $value  = shift;
+    my $desc   = shift || qq{Response has $header header with value "$value"};
+
+    # Force scalar context.
+    my $actual_value = $self->response->header($header);
+
+    my $ok;
+    if ( defined( $actual_value ) ) {
+        $ok = $TB->is_eq( $actual_value, $value, $desc );
+    }
+    else {
+        $ok = $TB->ok( 0, $desc );
+        $TB->diag( "Header $header does not exist" );
+    }
 
     return $ok;
 }
 
 
-=head2 $mech->header_matches( $field, $value [, $desc ] )
+=head2 $mech->header_like( $header, $value [, $desc ] )
 
-Assures that a given response header exists and has the given value.  Value may be a string or a regular expression.
+Assures that a given response header exists and has the given value.
 
 =cut
 
-sub header_matches {
-    my $self = shift;
-    my $field = shift;
-    my $value = shift;
-    my $desc = shift || qq{Response has $field header with value '$value'};
+sub header_like {
+    my $self   = shift;
+    my $header = shift;
+    my $regex  = shift;
+    my $desc   = shift || qq{Response has $header header that matches regex $regex};
 
-    my $actual_value = scalar $self->response->header($field);
-    my $ok = (ref($value) eq 'Regexp')
-       ? defined($actual_value) && ($actual_value =~ $value)
-       : defined($actual_value) && ($actual_value eq $value);
-
-    $TB->ok( $ok, $desc );
-    if ( !$ok ) {
-        $TB->diag( $self->response->header($field) ) if $self->response;
-    }
-    return $ok;
+    # Force scalar context.
+    my $actual_value = $self->response->header($header);
+    return $TB->like( $self->response->header($header), $regex, $desc );
 }
 
 
