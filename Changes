@@ -4,6 +4,41 @@ WWW::Mechanize and Test::WWW::Mechanize do not use rt.cpan.org for
 bug tracking.  They are now being tracked via GitHub at
 https://github.com/petdance/test-www-mechanize/issues
 
+
+1.45_04 Wed Jul 20 15:17:41 CDT 2016
+------------------------------------
+[FIXES]
+Fixed an overly-restrictive optimization in scrape_text_by_id(), plus
+scraped_id_is() and scraped_id_like() which wrap it.
+
+The method checks to make sure that it doesn't bother looking for an ID
+on the page if the ID doesn't exist.  It did this by looking for the text
+
+    id="foo"
+
+where foo is the ID being searched for.  However, that would mean that
+tags like
+
+    <p id='foo'>
+    <p id=foo>
+    <p id = "foo">
+    <p id=
+        "foo">
+    <p id
+    =
+            "foo"
+                    >
+
+would be seen as not existing.
+
+This has been fixed by making scrape_text_by_id() search for the string
+"foo" anywhere on the page.
+
+[ENHANCEMENTS]
+Renamed header_exists() to header_exists_ok(), and lacks_header() to
+lacks_header_ok() so it is clear it is an assertion.
+
+
 1.45_03 Tue Jul 12 17:54:00 CDT 2016
 ------------------------------------
 [ENHANCEMENTS]
