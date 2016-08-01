@@ -9,11 +9,11 @@ Test::WWW::Mechanize - Testing-specific WWW::Mechanize subclass
 
 =head1 VERSION
 
-Version 1.45_04
+Version 1.46
 
 =cut
 
-our $VERSION = '1.45_04';
+our $VERSION = '1.46';
 
 =head1 SYNOPSIS
 
@@ -64,13 +64,14 @@ results in
 
 =cut
 
+use HTML::TokeParser ();
 use WWW::Mechanize ();
 use Test::LongString;
 use Test::Builder ();
 use Carp ();
 use Carp::Assert::More;
 
-use base 'WWW::Mechanize';
+use parent 'WWW::Mechanize';
 
 my $TB = Test::Builder->new();
 
